@@ -1,0 +1,31 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "polygons"
+version = "0.1.0"
+description = "Polygon detection and processing"
+readme = "README.md"
+requires-python = ">=3.11"
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Operating System :: OS Independent",
+]
+dependencies = [
+    "shapely",
+    "matplotlib",
+    "flask",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest",
+]
+
+[project.scripts]
+polygons-cli = "polygons.cli:main"
+polygons-web = "polygons.webapp:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]

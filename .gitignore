@@ -1,0 +1,29 @@
+
+# Python
+__pycache__/
+*.pyc
+
+# Virtual Env
+.venv/
+venv/
+ENV/
+
+# Distribution / Packaging
+dist/
+build/
+*.egg-info/
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+
+# IDE / Editor
+.vscode/
+.idea/
+
+# Generated Output
+out/
+
+# Data is tracked
+!data/

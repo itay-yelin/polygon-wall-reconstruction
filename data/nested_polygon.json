@@ -1,0 +1,92 @@
+{
+    "entities": [
+        {
+            "type": "line",
+            "start_point": {
+                "x": 0,
+                "y": 0
+            },
+            "end_point": {
+                "x": 100,
+                "y": 0
+            }
+        },
+        {
+            "type": "line",
+            "start_point": {
+                "x": 100,
+                "y": 0
+            },
+            "end_point": {
+                "x": 100,
+                "y": 100
+            }
+        },
+        {
+            "type": "line",
+            "start_point": {
+                "x": 100,
+                "y": 100
+            },
+            "end_point": {
+                "x": 0,
+                "y": 100
+            }
+        },
+        {
+            "type": "line",
+            "start_point": {
+                "x": 0,
+                "y": 100
+            },
+            "end_point": {
+                "x": 0,
+                "y": 0
+            }
+        },
+        {
+            "type": "line",
+            "start_point": {
+                "x": 20,
+                "y": 20
+            },
+            "end_point": {
+                "x": 80,
+                "y": 20
+            }
+        },
+        {
+            "type": "line",
+            "start_point": {
+                "x": 80,
+                "y": 20
+            },
+            "end_point": {
+                "x": 80,
+                "y": 80
+            }
+        },
+        {
+            "type": "line",
+            "start_point": {
+                "x": 80,
+                "y": 80
+            },
+            "end_point": {
+                "x": 20,
+                "y": 80
+            }
+        },
+        {
+            "type": "line",
+            "start_point": {
+                "x": 20,
+                "y": 80
+            },
+            "end_point": {
+                "x": 20,
+                "y": 20
+            }
+        }
+    ]
+}

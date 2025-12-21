@@ -1,0 +1,9 @@
+{
+  "name": "simple_square",
+  "entities": [
+    { "type": "line", "start_point": { "x": 0, "y": 0 }, "end_point": { "x": 10, "y": 0 } },
+    { "type": "line", "start_point": { "x": 10, "y": 0 }, "end_point": { "x": 10, "y": 10 } },
+    { "type": "line", "start_point": { "x": 10, "y": 10 }, "end_point": { "x": 0, "y": 10 } },
+    { "type": "line", "start_point": { "x": 0, "y": 10 }, "end_point": { "x": 0, "y": 0 } }
+  ]
+}
