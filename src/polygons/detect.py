@@ -27,7 +27,7 @@ MIN_AREA = 2.0
 AREA_RATIO_THRESH = 1.35
 CONTAIN_TOL = 1e-6
 MIN_COMPACTNESS = 0.0
-
+MIN_LINE_LEN = 0.5
 
 # ----------------------------
 # Helpers
@@ -38,78 +38,180 @@ def _distance(p1: Point, p2: Point) -> float:
 def _is_close(p1: Point, p2: Point, tol=1e-5) -> bool:
     return _distance(p1, p2) < tol
 
-def _get_intersection(l1: Line, l2: Line, tol=1e-5) -> Optional[Point]:
+def _get_intersection(l1_coords: tuple, l2_coords: tuple, tol=1e-5) -> Optional[Point]:
     """
-    Finds intersection between two line segments. 
-    Returns None if parallel or if intersection is outside segments.
+    Finds intersection between two line segments (passed as coordinate tuples).
+    l1_coords: ((x1, y1), (x2, y2))
     """
-    (x1, y1), (x2, y2) = l1
-    (x3, y3), (x4, y4) = l2
+    (x1, y1), (x2, y2) = l1_coords
+    (x3, y3), (x4, y4) = l2_coords
 
     denom = (y4 - y3) * (x2 - x1) - (x4 - x3) * (y2 - y1)
     
-    # Parallel lines (denom is 0)
     if abs(denom) < tol:
         return None
 
     ua = ((x4 - x3) * (y1 - y3) - (y4 - y3) * (x1 - x3)) / denom
     ub = ((x2 - x1) * (y1 - y3) - (y2 - y1) * (x1 - x3)) / denom
 
-    # Check if intersection is STRICTLY within the segments 
-    # (0 <= u <= 1 means it touches. 0 < u < 1 means strict crossing).
-    # We use a small epsilon to handle "almost endpoint" hits.
     if tol < ua < 1 - tol and tol < ub < 1 - tol:
         x = x1 + ua * (x2 - x1)
         y = y1 + ua * (y2 - y1)
         return (x, y)
     
     return None
-
 def _planarize_lines(lines: Sequence[Line]) -> List[Line]:
     """
     Breaks lines at intersection points so that no two lines cross.
-    Resulting lines only touch at endpoints.
+    Handles 'Line' objects correctly.
     """
-    # map: line_index -> list of cut points
     cut_points = defaultdict(list)
     
-    # 1. Detect all intersections (O(N^2))
-    # Note: For N > 1000, you would want a Sweep Line algorithm here.
+    # Pre-convert all lines to coordinate tuples for math operations
+    # shape: [ ((x1, y1), (x2, y2)), ... ]
+    line_coords = [
+        ((ln.start.x, ln.start.y), (ln.end.x, ln.end.y)) 
+        for ln in lines
+    ]
+
     n = len(lines)
     for i in range(n):
         for j in range(i + 1, n):
-            intersection = _get_intersection(lines[i], lines[j])
+            # Pass simple tuples to the math function
+            intersection = _get_intersection(line_coords[i], line_coords[j])
             if intersection:
                 cut_points[i].append(intersection)
                 cut_points[j].append(intersection)
 
-    # 2. Reconstruct segments
     final_segments = []
 
     for i, line in enumerate(lines):
-        start, end = line
+        # Unpack coordinates from the Line object
+        start = (line.start.x, line.start.y)
+        end = (line.end.x, line.end.y)
         
-        # Start with original endpoints
         points_on_line = [start, end]
-        
-        # Add any detected cuts
         points_on_line.extend(cut_points[i])
         
-        # 3. Sort points along the line to ensure correct segment order
-        # We project points onto the X (or Y) axis of the line to sort them.
-        # Simple distance from 'start' works well.
+        # Sort by distance from start
         points_on_line.sort(key=lambda p: _distance(start, p))
         
-        # 4. Create new segments between consecutive points
         for k in range(len(points_on_line) - 1):
             p1 = points_on_line[k]
             p2 = points_on_line[k+1]
             
-            # Avoid creating zero-length segments (if multiple cuts were close)
-            if not is_close(p1, p2):
-                final_segments.append((p1, p2))
+            if not _is_close(p1, p2):
+                # Reconstruct a proper Line object (inheriting the ID)
+                # Assuming Point(x, y) constructor exists
+                new_line = Line(Point(p1[0], p1[1]), Point(p2[0], p2[1]), line.id)
+                final_segments.append(new_line)
 
     return final_segments
+
+def _intersect_ray_segment(ray_origin: Point, ray_dir: Point, seg_p1: Point, seg_p2: Point) -> Optional[Point]:
+    """
+    Finds intersection between a RAY (origin + t * dir) and a SEGMENT (p1-p2).
+    Returns the point if it hits, otherwise None.
+    """
+    rx, ry = ray_origin
+    dx, dy = ray_dir
+    sx1, sy1 = seg_p1
+    sx2, sy2 = seg_p2
+
+    # Vector form of segment: S(u) = p1 + u * (p2 - p1)
+    # Vector form of ray: R(t) = origin + t * dir
+    # We solve for t and u:
+    # origin + t * dir = p1 + u * (p2 - p1)
+    
+    # Cross product 2D analog to solve linear system
+    r_cross_s = dx * (sy2 - sy1) - dy * (sx2 - sx1)
+    
+    # Parallel check (cross product near 0)
+    if abs(r_cross_s) < 1e-9:
+        return None
+
+    # Solve for t (distance along ray) and u (position along segment)
+    # t = (p1 - origin) x (p2 - p1) / (dir x (p2 - p1))
+    # u = (p1 - origin) x dir / (dir x (p2 - p1))
+    
+    diff_x = sx1 - rx
+    diff_y = sy1 - ry
+    
+    t = (diff_x * (sy2 - sy1) - diff_y * (sx2 - sx1)) / r_cross_s
+    u = (diff_x * dy - diff_y * dx) / r_cross_s
+
+    # Conditions for intersection:
+    # t > 0: Ray must move forward (not backward)
+    # 0 <= u <= 1: Intersection must be WITHIN the target segment
+    if t > 1e-9 and 0 <= u <= 1:
+        # Intersection point
+        return (rx + t * dx, ry + t * dy)
+        
+    return None
+
+def _extend_undershoots(lines: Sequence[Line], max_distance: float = 0.5) -> List[Line]:
+    """
+    Extends line endpoints along their vector if they are close to intersecting.
+    """
+    # 1. Create a mutable list of coordinates: [ [start_tuple, end_tuple], ... ]
+    mutable_coords = [
+        [(ln.start.x, ln.start.y), (ln.end.x, ln.end.y)] 
+        for ln in lines
+    ]
+    
+    for i in range(len(mutable_coords)):
+        p1, p2 = mutable_coords[i]
+        
+        # --- Check Endpoint P2 (Forward) ---
+        ray_dir = (p2[0] - p1[0], p2[1] - p1[1])
+        best_point = None
+        min_dist = float('inf')
+        
+        for j in range(len(mutable_coords)):
+            if i == j: continue
+            target_p1, target_p2 = mutable_coords[j]
+            
+            # Using existing _intersect_ray_segment helper
+            hit = _intersect_ray_segment(p2, ray_dir, target_p1, target_p2)
+            if hit:
+                d = _distance(p2, hit) # Using _distance helper
+                if d < max_distance and d < min_dist:
+                    min_dist = d
+                    best_point = hit
+        
+        if best_point:
+            mutable_coords[i][1] = best_point # Update P2
+            
+        # --- Check Endpoint P1 (Backward) ---
+        # Re-read P2 (it might have changed)
+        p1, p2 = mutable_coords[i]
+        ray_dir = (p1[0] - p2[0], p1[1] - p2[1])
+        best_point = None
+        min_dist = float('inf')
+        
+        for j in range(len(mutable_coords)):
+            if i == j: continue
+            target_p1, target_p2 = mutable_coords[j]
+            
+            hit = _intersect_ray_segment(p1, ray_dir, target_p1, target_p2)
+            if hit:
+                d = _distance(p1, hit)
+                if d < max_distance and d < min_dist:
+                    min_dist = d
+                    best_point = hit
+                    
+        if best_point:
+            mutable_coords[i][0] = best_point # Update P1
+
+    # 2. Convert back to Line objects
+    result_lines = []
+    for i, (start, end) in enumerate(mutable_coords):
+        original_id = lines[i].id
+        result_lines.append(
+            Line(Point(start[0], start[1]), Point(end[0], end[1]), original_id)
+        )
+
+    return result_lines
 
 def _dist(a: Point, b: Point) -> float:
     return hypot(a.x - b.x, a.y - b.y)
@@ -359,20 +461,29 @@ def _calculate_coverage(lines: Sequence[Line], polys: list[Polygon]) -> tuple[fl
     
     return coverage, missing_segs
 
+# Add this parameter at the top with the others if it's missing
+MIN_LINE_LEN = 0.5 
 
 def detect_polygons(lines: Sequence[Line]) -> tuple[list[dict[str, Any]], dict[str, Any]]:
     
-    # 0.1 go over all lines: for each line if it intersects with another line, break it into segments
+    # 0) Preprocessing
+    # 0.1 Extend lines a bit (fix undershoots)
+    lines = _extend_undershoots(lines)
+    
+    # 0.2 Planarize: break lines at intersections
     lines = _planarize_lines(lines)
 
-    # 0.2) Pre-snap endpoints to close small gaps
-    # Use 0.5 as tolerance (half wall thickness usually)
+    # 0.3) Pre-snap endpoints to close small gaps
     lines = _snap_endpoints(lines, tol=0.5)
 
-    # 0.3) Remove lines that are too short
-    lines = [ln for ln in lines if ln.length > MIN_LINE_LEN]
-
-
+    # 0.4) Remove lines that are too short (FIXED)
+    # We calculate length manually: hypot(dx, dy)
+    valid_lines = []
+    for ln in lines:
+        length = math.hypot(ln.start.x - ln.end.x, ln.start.y - ln.end.y)
+        if length > MIN_LINE_LEN:
+            valid_lines.append(ln)
+    lines = valid_lines
 
     # 1) Build linework for shapely
     segs = [
@@ -382,7 +493,7 @@ def detect_polygons(lines: Sequence[Line]) -> tuple[list[dict[str, Any]], dict[s
     if not segs:
         return [], {"coverage_pct": 0.0, "missing_lines": []}
 
-    # 2) Quantize to a precision grid (replaces manual snapping)
+    # 2) Quantize to a precision grid
     mls = MultiLineString(segs)
     mls = _quantize_linework(mls, grid_size=EPS_POINT)
 
@@ -392,7 +503,7 @@ def detect_polygons(lines: Sequence[Line]) -> tuple[list[dict[str, Any]], dict[s
     if not polys:
         return [], {"coverage_pct": 0.0, "missing_lines": []}
 
-    # 4) Postprocess (refactored block)
+    # 4) Postprocess
     polys = _postprocess_polys(
         polys=polys,
         min_area=MIN_AREA,
@@ -404,7 +515,7 @@ def detect_polygons(lines: Sequence[Line]) -> tuple[list[dict[str, Any]], dict[s
     # 5) Calc Stats
     coverage, missing_lines = _calculate_coverage(lines, polys)
 
-    # 6) Convert to expected output format for visualize/io_out
+    # 6) Convert to output format
     out: list[dict[str, Any]] = []
 
     def _add_poly(p: Polygon):
