@@ -4,6 +4,8 @@ from typing import Sequence, Any
 from math import hypot
 import math
 
+from collections import defaultdict
+from typing import Sequence, Tuple, List, Optional
 from .io_json import Line, Point
 
 from shapely.geometry import LineString, MultiLineString, Polygon
@@ -30,6 +32,84 @@ MIN_COMPACTNESS = 0.0
 # ----------------------------
 # Helpers
 # ----------------------------
+def _distance(p1: Point, p2: Point) -> float:
+    return math.hypot(p1[0] - p2[0], p1[1] - p2[1])
+
+def _is_close(p1: Point, p2: Point, tol=1e-5) -> bool:
+    return _distance(p1, p2) < tol
+
+def _get_intersection(l1: Line, l2: Line, tol=1e-5) -> Optional[Point]:
+    """
+    Finds intersection between two line segments. 
+    Returns None if parallel or if intersection is outside segments.
+    """
+    (x1, y1), (x2, y2) = l1
+    (x3, y3), (x4, y4) = l2
+
+    denom = (y4 - y3) * (x2 - x1) - (x4 - x3) * (y2 - y1)
+    
+    # Parallel lines (denom is 0)
+    if abs(denom) < tol:
+        return None
+
+    ua = ((x4 - x3) * (y1 - y3) - (y4 - y3) * (x1 - x3)) / denom
+    ub = ((x2 - x1) * (y1 - y3) - (y2 - y1) * (x1 - x3)) / denom
+
+    # Check if intersection is STRICTLY within the segments 
+    # (0 <= u <= 1 means it touches. 0 < u < 1 means strict crossing).
+    # We use a small epsilon to handle "almost endpoint" hits.
+    if tol < ua < 1 - tol and tol < ub < 1 - tol:
+        x = x1 + ua * (x2 - x1)
+        y = y1 + ua * (y2 - y1)
+        return (x, y)
+    
+    return None
+
+def _planarize_lines(lines: Sequence[Line]) -> List[Line]:
+    """
+    Breaks lines at intersection points so that no two lines cross.
+    Resulting lines only touch at endpoints.
+    """
+    # map: line_index -> list of cut points
+    cut_points = defaultdict(list)
+    
+    # 1. Detect all intersections (O(N^2))
+    # Note: For N > 1000, you would want a Sweep Line algorithm here.
+    n = len(lines)
+    for i in range(n):
+        for j in range(i + 1, n):
+            intersection = _get_intersection(lines[i], lines[j])
+            if intersection:
+                cut_points[i].append(intersection)
+                cut_points[j].append(intersection)
+
+    # 2. Reconstruct segments
+    final_segments = []
+
+    for i, line in enumerate(lines):
+        start, end = line
+        
+        # Start with original endpoints
+        points_on_line = [start, end]
+        
+        # Add any detected cuts
+        points_on_line.extend(cut_points[i])
+        
+        # 3. Sort points along the line to ensure correct segment order
+        # We project points onto the X (or Y) axis of the line to sort them.
+        # Simple distance from 'start' works well.
+        points_on_line.sort(key=lambda p: _distance(start, p))
+        
+        # 4. Create new segments between consecutive points
+        for k in range(len(points_on_line) - 1):
+            p1 = points_on_line[k]
+            p2 = points_on_line[k+1]
+            
+            # Avoid creating zero-length segments (if multiple cuts were close)
+            if not is_close(p1, p2):
+                final_segments.append((p1, p2))
+
+    return final_segments
 
 def _dist(a: Point, b: Point) -> float:
     return hypot(a.x - b.x, a.y - b.y)
@@ -281,9 +361,18 @@ def _calculate_coverage(lines: Sequence[Line], polys: list[Polygon]) -> tuple[fl
 
 
 def detect_polygons(lines: Sequence[Line]) -> tuple[list[dict[str, Any]], dict[str, Any]]:
-    # 0) Pre-snap endpoints to close small gaps
+    
+    # 0.1 go over all lines: for each line if it intersects with another line, break it into segments
+    lines = _planarize_lines(lines)
+
+    # 0.2) Pre-snap endpoints to close small gaps
     # Use 0.5 as tolerance (half wall thickness usually)
     lines = _snap_endpoints(lines, tol=0.5)
+
+    # 0.3) Remove lines that are too short
+    lines = [ln for ln in lines if ln.length > MIN_LINE_LEN]
+
+
 
     # 1) Build linework for shapely
     segs = [
