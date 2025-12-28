@@ -1,0 +1,245 @@
+{
+    "name": "Big Room With Pillar (Thick Walls)",
+    "entities": [
+        {
+            "type": "line",
+            "start_point": {
+                "x": 0.0,
+                "y": 120.0,
+                "z": 0.0
+            },
+            "end_point": {
+                "x": 0.0,
+                "y": 0.0,
+                "z": 0.0
+            },
+            "color": "#FFFFFF",
+            "id": "wall_left_outer"
+        },
+        {
+            "type": "line",
+            "start_point": {
+                "x": 0.0,
+                "y": 0.0,
+                "z": 0.0
+            },
+            "end_point": {
+                "x": 120.0,
+                "y": 0.0,
+                "z": 0.0
+            },
+            "color": "#FFFFFF",
+            "id": "wall_bottom_outer"
+        },
+        {
+            "type": "line",
+            "start_point": {
+                "x": 120.0,
+                "y": 0.0,
+                "z": 0.0
+            },
+            "end_point": {
+                "x": 120.0,
+                "y": 120.0,
+                "z": 0.0
+            },
+            "color": "#FFFFFF",
+            "id": "wall_right_outer"
+        },
+        {
+            "type": "line",
+            "start_point": {
+                "x": 120.0,
+                "y": 120.0,
+                "z": 0.0
+            },
+            "end_point": {
+                "x": 70.0,
+                "y": 120.0,
+                "z": 0.0
+            },
+            "color": "#FFFFFF",
+            "id": "wall_top_right_outer"
+        },
+        {
+            "type": "line",
+            "start_point": {
+                "x": 70.0,
+                "y": 120.0,
+                "z": 0.0
+            },
+            "end_point": {
+                "x": 70.0,
+                "y": 110.0,
+                "z": 0.0
+            },
+            "color": "#FFFFFF",
+            "id": "wall_gap_right"
+        },
+        {
+            "type": "line",
+            "start_point": {
+                "x": 70.0,
+                "y": 110.0,
+                "z": 0.0
+            },
+            "end_point": {
+                "x": 110.0,
+                "y": 110.0,
+                "z": 0.0
+            },
+            "color": "#FFFFFF",
+            "id": "wall_top_right_inner"
+        },
+        {
+            "type": "line",
+            "start_point": {
+                "x": 110.0,
+                "y": 110.0,
+                "z": 0.0
+            },
+            "end_point": {
+                "x": 110.0,
+                "y": 10.0,
+                "z": 0.0
+            },
+            "color": "#FFFFFF",
+            "id": "wall_right_inner"
+        },
+        {
+            "type": "line",
+            "start_point": {
+                "x": 110.0,
+                "y": 10.0,
+                "z": 0.0
+            },
+            "end_point": {
+                "x": 10.0,
+                "y": 10.0,
+                "z": 0.0
+            },
+            "color": "#FFFFFF",
+            "id": "wall_bottom_inner"
+        },
+        {
+            "type": "line",
+            "start_point": {
+                "x": 10.0,
+                "y": 10.0,
+                "z": 0.0
+            },
+            "end_point": {
+                "x": 10.0,
+                "y": 110.0,
+                "z": 0.0
+            },
+            "color": "#FFFFFF",
+            "id": "wall_left_inner"
+        },
+        {
+            "type": "line",
+            "start_point": {
+                "x": 10.0,
+                "y": 110.0,
+                "z": 0.0
+            },
+            "end_point": {
+                "x": 50.0,
+                "y": 110.0,
+                "z": 0.0
+            },
+            "color": "#FFFFFF",
+            "id": "wall_top_left_inner"
+        },
+        {
+            "type": "line",
+            "start_point": {
+                "x": 50.0,
+                "y": 110.0,
+                "z": 0.0
+            },
+            "end_point": {
+                "x": 50.0,
+                "y": 120.0,
+                "z": 0.0
+            },
+            "color": "#FFFFFF",
+            "id": "wall_gap_left"
+        },
+        {
+            "type": "line",
+            "start_point": {
+                "x": 50.0,
+                "y": 120.0,
+                "z": 0.0
+            },
+            "end_point": {
+                "x": 0.0,
+                "y": 120.0,
+                "z": 0.0
+            },
+            "color": "#FFFFFF",
+            "id": "wall_top_left_outer"
+        },
+        {
+            "type": "line",
+            "start_point": {
+                "x": 55.0,
+                "y": 55.0,
+                "z": 0.0
+            },
+            "end_point": {
+                "x": 65.0,
+                "y": 55.0,
+                "z": 0.0
+            },
+            "color": "#FFFFFF",
+            "id": "pillar_bottom"
+        },
+        {
+            "type": "line",
+            "start_point": {
+                "x": 65.0,
+                "y": 55.0,
+                "z": 0.0
+            },
+            "end_point": {
+                "x": 65.0,
+                "y": 65.0,
+                "z": 0.0
+            },
+            "color": "#FFFFFF",
+            "id": "pillar_right"
+        },
+        {
+            "type": "line",
+            "start_point": {
+                "x": 65.0,
+                "y": 65.0,
+                "z": 0.0
+            },
+            "end_point": {
+                "x": 55.0,
+                "y": 65.0,
+                "z": 0.0
+            },
+            "color": "#FFFFFF",
+            "id": "pillar_top"
+        },
+        {
+            "type": "line",
+            "start_point": {
+                "x": 55.0,
+                "y": 65.0,
+                "z": 0.0
+            },
+            "end_point": {
+                "x": 55.0,
+                "y": 55.0,
+                "z": 0.0
+            },
+            "color": "#FFFFFF",
+            "id": "pillar_left"
+        }
+    ]
+}
