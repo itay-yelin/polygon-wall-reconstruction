@@ -1,0 +1,247 @@
+{
+    "name": "Realistic Apartment (Meters)",
+    "entities": [
+        {
+            "type": "line",
+            "start_point": {
+                "x": 0,
+                "y": 0
+            },
+            "end_point": {
+                "x": 10,
+                "y": 0
+            }
+        },
+        {
+            "type": "line",
+            "start_point": {
+                "x": 0,
+                "y": 0.2
+            },
+            "end_point": {
+                "x": 10,
+                "y": 0.2
+            }
+        },
+        {
+            "type": "line",
+            "start_point": {
+                "x": 0,
+                "y": 0
+            },
+            "end_point": {
+                "x": 0,
+                "y": 8
+            }
+        },
+        {
+            "type": "line",
+            "start_point": {
+                "x": 0.2,
+                "y": 0.2
+            },
+            "end_point": {
+                "x": 0.2,
+                "y": 8
+            }
+        },
+        {
+            "type": "line",
+            "start_point": {
+                "x": 0,
+                "y": 8
+            },
+            "end_point": {
+                "x": 10,
+                "y": 8
+            }
+        },
+        {
+            "type": "line",
+            "start_point": {
+                "x": 0.2,
+                "y": 7.8
+            },
+            "end_point": {
+                "x": 10,
+                "y": 7.8
+            }
+        },
+        {
+            "type": "line",
+            "start_point": {
+                "x": 10,
+                "y": 0
+            },
+            "end_point": {
+                "x": 10,
+                "y": 2
+            }
+        },
+        {
+            "type": "line",
+            "start_point": {
+                "x": 9.8,
+                "y": 0.2
+            },
+            "end_point": {
+                "x": 9.8,
+                "y": 2.1
+            }
+        },
+        {
+            "type": "line",
+            "start_point": {
+                "x": 10,
+                "y": 6
+            },
+            "end_point": {
+                "x": 10,
+                "y": 8
+            }
+        },
+        {
+            "type": "line",
+            "start_point": {
+                "x": 9.8,
+                "y": 5.9
+            },
+            "end_point": {
+                "x": 9.8,
+                "y": 7.8
+            }
+        },
+        {
+            "type": "line",
+            "start_point": {
+                "x": 10,
+                "y": 2
+            },
+            "end_point": {
+                "x": 12,
+                "y": 4
+            }
+        },
+        {
+            "type": "line",
+            "start_point": {
+                "x": 9.8,
+                "y": 2.1
+            },
+            "end_point": {
+                "x": 11.6,
+                "y": 3.9
+            }
+        },
+        {
+            "type": "line",
+            "start_point": {
+                "x": 12,
+                "y": 4
+            },
+            "end_point": {
+                "x": 10,
+                "y": 6
+            }
+        },
+        {
+            "type": "line",
+            "start_point": {
+                "x": 11.6,
+                "y": 4.1
+            },
+            "end_point": {
+                "x": 9.8,
+                "y": 5.9
+            }
+        },
+        {
+            "type": "line",
+            "start_point": {
+                "x": 4.9,
+                "y": 0.2
+            },
+            "end_point": {
+                "x": 4.9,
+                "y": 4
+            }
+        },
+        {
+            "type": "line",
+            "start_point": {
+                "x": 5.1,
+                "y": 0.2
+            },
+            "end_point": {
+                "x": 5.1,
+                "y": 4
+            }
+        },
+        {
+            "type": "line",
+            "start_point": {
+                "x": 4.9,
+                "y": 5
+            },
+            "end_point": {
+                "x": 4.9,
+                "y": 7.8
+            }
+        },
+        {
+            "type": "line",
+            "start_point": {
+                "x": 5.1,
+                "y": 5
+            },
+            "end_point": {
+                "x": 5.1,
+                "y": 7.8
+            }
+        },
+        {
+            "type": "line",
+            "start_point": {
+                "x": 7,
+                "y": 3
+            },
+            "end_point": {
+                "x": 8,
+                "y": 3
+            }
+        },
+        {
+            "type": "line",
+            "start_point": {
+                "x": 8,
+                "y": 3
+            },
+            "end_point": {
+                "x": 8,
+                "y": 4
+            }
+        },
+        {
+            "type": "line",
+            "start_point": {
+                "x": 8,
+                "y": 4
+            },
+            "end_point": {
+                "x": 7,
+                "y": 4
+            }
+        },
+        {
+            "type": "line",
+            "start_point": {
+                "x": 7,
+                "y": 4
+            },
+            "end_point": {
+                "x": 7,
+                "y": 3
+            }
+        }
+    ]
+}

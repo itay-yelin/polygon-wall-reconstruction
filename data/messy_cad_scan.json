@@ -1,0 +1,20 @@
+{
+  "name": "Messy CAD Scan (Dirty Input)",
+  "entities": [
+    { "type": "line", "start_point": { "x": 0, "y": 0 }, "end_point": { "x": 10, "y": 0 } },
+    { "type": "line", "start_point": { "x": 0, "y": 0.15 }, "end_point": { "x": 10.05, "y": 0.15 } },
+
+    { "type": "line", "start_point": { "x": 5, "y": 0.15 }, "end_point": { "x": 5, "y": 4.9 } },
+    { "type": "line", "start_point": { "x": 5.15, "y": 0.15 }, "end_point": { "x": 5.15, "y": 5.1 } },
+
+    { "type": "line", "start_point": { "x": 2, "y": 4.95 }, "end_point": { "x": 8, "y": 5.0 } },
+    { "type": "line", "start_point": { "x": 2, "y": 5.15 }, "end_point": { "x": 5.1, "y": 5.15 } },
+    { "type": "line", "start_point": { "x": 5.2, "y": 5.15 }, "end_point": { "x": 8, "y": 5.15 } },
+
+    { "type": "line", "start_point": { "x": 0, "y": 0 }, "end_point": { "x": 0, "y": 5 } },
+    { "type": "line", "start_point": { "x": 0.15, "y": 0.15 }, "end_point": { "x": 0.15, "y": 4.95 } },
+    
+    { "type": "line", "start_point": { "x": 10, "y": 0 }, "end_point": { "x": 10, "y": 5 } },
+    { "type": "line", "start_point": { "x": 9.85, "y": 0.15 }, "end_point": { "x": 9.85, "y": 5 } }
+  ]
+}
