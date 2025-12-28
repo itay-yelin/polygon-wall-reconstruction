@@ -27,8 +27,14 @@ def detect():
             input_lines.append(Line(start, end))
 
         # Run detection
+        import time
+        t0 = time.time()
         polygons, stats = detect_polygons(input_lines)
+        dt = time.time() - t0
         
+        # Add time to stats
+        stats['time_sec'] = dt
+
         return jsonify({
             'status': 'success', 
             'polygons': polygons,

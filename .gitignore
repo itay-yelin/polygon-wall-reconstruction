@@ -24,6 +24,7 @@ htmlcov/
 
 # Generated Output
 out/
+Temp/
 
 # Data is tracked
 !data/

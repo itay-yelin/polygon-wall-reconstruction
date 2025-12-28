@@ -376,6 +376,10 @@ class App {
                         statsDiv.style.display = 'inline-flex';
                         valSpan.textContent = result.stats.coverage_pct.toFixed(1) + '%';
                     }
+                    if (result.stats.time_sec !== undefined) {
+                        const tCtx = document.getElementById('timeVal');
+                        if (tCtx) tCtx.textContent = result.stats.time_sec.toFixed(3) + 's';
+                    }
                     if (result.stats.missing_lines) {
                         this.missingLines = result.stats.missing_lines;
                     }

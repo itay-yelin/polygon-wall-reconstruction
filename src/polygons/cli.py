@@ -12,19 +12,24 @@ def main() -> int:
     args = p.parse_args()
 
     lines = load_lines_from_json(args.input)
-    polygons, _stats = detect_polygons(lines)
+    polygons, stats = detect_polygons(lines)
 
     out_json = write_polygons_json(polygons, args.outdir)
-    out_png = save_visualization(lines, polygons, args.outdir)
+    
+    missing = stats.get("missing_lines", [])
+    out_png = save_visualization(lines, polygons, args.outdir, missing_lines=missing)
 
     out_all = save_all_polygons_only(polygons, args.outdir)
-    print(f"all polygons image: {out_all}")
-    print(f"lines: {len(lines)}")
-    print(f"polygons: {len(polygons)}")
-    print(f"wrote: {out_json}")
-    print(f"image: {out_png}")
+    
+    print(f"--- Stats ---")
+    print(f"Lines: {len(lines)}")
+    print(f"Polygons: {len(polygons)}")
+    print(f"Coverage: {stats.get('coverage_pct', 0):.2f}%")
+    print(f"Missing Segments: {len(missing)}")
+    print(f"------------")
+    print(f"Wrote: {out_json}")
+    print(f"Image: {out_png}")
     return 0
-
 
 if __name__ == "__main__":
     raise SystemExit(main())

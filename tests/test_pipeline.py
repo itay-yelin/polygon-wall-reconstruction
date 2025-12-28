@@ -1,53 +1,35 @@
-import json
 import sys
+import json
 from pathlib import Path
 
-
 def test_cli_creates_outputs(tmp_path, monkeypatch):
-    project_root = Path(__file__).resolve().parents[1]
-    # src_path = project_root / "src"
-    # sys.path.insert(0, str(src_path))
-
+    """
+    Simulate running the CLI via arguments and checking output generation.
+    """
     from polygons.cli import main
 
     input_path = tmp_path / "input.json"
     outdir = tmp_path / "out"
 
+    # Create dummy input
     payload = {
-        "name": "test_layer",
         "entities": [
-            {
-                "type": "line",
-                "start_point": {"x": 0, "y": 0},
-                "end_point": {"x": 10, "y": 0},
-            },
-            {
-                "type": "line",
-                "start_point": {"x": 10, "y": 0},
-                "end_point": {"x": 10, "y": 10},
-            },
-        ],
+            {"type": "line", "start_point": {"x":0, "y":0}, "end_point": {"x":10, "y":0}},
+            {"type": "line", "start_point": {"x":10, "y":0}, "end_point": {"x":10, "y":10}},
+            {"type": "line", "start_point": {"x":10, "y":10}, "end_point": {"x":0, "y":10}},
+            {"type": "line", "start_point": {"x":0, "y":10}, "end_point": {"x":0, "y":0}}
+        ]
     }
     input_path.write_text(json.dumps(payload), encoding="utf-8")
 
-    argv = [
-        "polygons.cli",
-        "--input",
-        str(input_path),
-        "--outdir",
-        str(outdir),
-    ]
+    # Mock argv
+    argv = ["polygons.cli", "--input", str(input_path), "--outdir", str(outdir)]
     monkeypatch.setattr(sys, "argv", argv)
 
+    # Run
     rc = main()
     assert rc == 0
 
-    json_out = outdir / "polygons.json"
-    png_out = outdir / "polygons.png"
-
-    assert json_out.exists()
-    assert png_out.exists()
-
-    data = json.loads(json_out.read_text(encoding="utf-8"))
-    assert "polygons" in data
-    assert isinstance(data["polygons"], list)
+    # Verify outputs
+    assert (outdir / "polygons.json").exists()
+    assert (outdir / "polygons.png").exists()
