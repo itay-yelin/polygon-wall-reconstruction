@@ -11,6 +11,13 @@ from shapely.strtree import STRtree
 
 from .io_json import Line, Point
 
+# ----------------------------
+# 1. Configuration & Constants
+# ----------------------------
+
+DOT_PARALLEL = 0.9  # Threshold for ~25 degrees
+DOT_PERP = 0.2      # Threshold for ~78-102 degrees
+
 @dataclass
 class DetectionConfig:
     min_area: float = 0.5           
@@ -26,7 +33,12 @@ class DetectionConfig:
     coverage_buffer: float = 3.0    
     merge_overlapping: bool = True
 
+# ----------------------------
+# 2. Math Helpers (Stateless)
+# ----------------------------
+
 def _intersect_ray_segment_optimized(ray_origin, ray_dir, segment_coords):
+    """Calculates intersection between a ray and a segment."""
     rx, ry = ray_origin
     dx, dy = ray_dir
     (sx1, sy1), (sx2, sy2) = segment_coords
@@ -39,67 +51,88 @@ def _intersect_ray_segment_optimized(ray_origin, ray_dir, segment_coords):
     t = (diff_x * (sy2 - sy1) - diff_y * (sx2 - sx1)) / r_cross_s
     u = (diff_x * dy - diff_y * dx) / r_cross_s
 
+    # Allow slight overshoot for endpoint hits (u in [-epsilon, 1+epsilon])
     if t > 1e-9 and -1e-9 <= u <= 1.0 + 1e-9:
         return (rx + t * dx, ry + t * dy)
     return None
 
+def _compute_unit_vectors(coords: np.ndarray) -> np.ndarray:
+    """
+    Computes unit vectors for all lines in one pass.
+    Input: (N, 4) array [x1, y1, x2, y2]
+    Output: (N, 2) array [dx, dy] normalized
+    """
+    dx = coords[:, 2] - coords[:, 0]
+    dy = coords[:, 3] - coords[:, 1]
+    lengths = np.hypot(dx, dy)
+    # Avoid division by zero
+    lengths[lengths < 1e-9] = 1.0 
+    return np.stack((dx / lengths, dy / lengths), axis=1)
+
+# ----------------------------
+# 3. Core Logic
+# ----------------------------
+
 def _extend_undershoots_bulk(geoms: List[LineString], max_dist: float) -> List[LineString]:
     if not geoms: return []
     
-    # OPTIMIZATION: Use Shapely 2.0 fast coordinate access
-    # get_coordinates returns (N*2, 2). Reshape to (N, 4) -> x1, y1, x2, y2
+    # 1. Setup Data
     coords = get_coordinates(geoms).reshape(-1, 4)
-    
     tree = STRtree(geoms)
     
-    # Create points for spatial query
     p1_pts = [ShapelyPoint(c[0], c[1]) for c in coords]
     p2_pts = [ShapelyPoint(c[2], c[3]) for c in coords]
     
-    # Bulk Query
+    # 2. Bulk Query
     p1_indices = tree.query(p1_pts, predicate="dwithin", distance=max_dist)
     p2_indices = tree.query(p2_pts, predicate="dwithin", distance=max_dist)
 
-    best_p2 = {}
-    best_p1 = {}
+    updates = {} # Map row_idx -> (dist, new_point, is_p1)
 
-    # Helper to process hits
-    def process_hits(query_indices, target_indices, is_p1: bool):
-        updates = best_p1 if is_p1 else best_p2
-        col_idx_x, col_idx_y = (0, 1) if is_p1 else (2, 3)
-        
-        for q_idx, t_idx in zip(query_indices, target_indices):
-            if q_idx == t_idx: continue
-            
-            x_src, y_src = coords[q_idx][col_idx_x], coords[q_idx][col_idx_y]
-            
-            # Vector logic depending on which end we are extending
-            if is_p1:
-                dx, dy = x_src - coords[q_idx][2], y_src - coords[q_idx][3]
-            else:
-                dx, dy = x_src - coords[q_idx][0], y_src - coords[q_idx][1]
+    # 3. Process Hits
+    # We iterate twice: once for Start points (P1), once for End points (P2)
+    # definition: (indices, is_p1, ray_dir_sign)
+    passes = [
+        (p1_indices, True, -1), # P1: ray goes P2->P1 (backwards relative to line vector)
+        (p2_indices, False, 1)  # P2: ray goes P1->P2
+    ]
 
-            target_seg = ((coords[t_idx][0], coords[t_idx][1]), (coords[t_idx][2], coords[t_idx][3]))
-            hit = _intersect_ray_segment_optimized((x_src, y_src), (dx, dy), target_seg)
+    for (q_idxs, t_idxs), is_p1, sign in passes:
+        for q, t in zip(q_idxs, t_idxs):
+            if q == t: continue
+            
+            # Origin
+            src_x = coords[q][0] if is_p1 else coords[q][2]
+            src_y = coords[q][1] if is_p1 else coords[q][3]
+            
+            # Direction: (dx, dy) of the line * sign
+            line_dx = coords[q][2] - coords[q][0]
+            line_dy = coords[q][3] - coords[q][1]
+            
+            target_seg = ((coords[t][0], coords[t][1]), (coords[t][2], coords[t][3]))
+            
+            hit = _intersect_ray_segment_optimized(
+                (src_x, src_y), 
+                (line_dx * sign, line_dy * sign), 
+                target_seg
+            )
             
             if hit:
-                d = math.hypot(hit[0] - x_src, hit[1] - y_src)
+                d = math.hypot(hit[0] - src_x, hit[1] - src_y)
                 if d < max_dist:
-                    if q_idx not in updates or d < updates[q_idx][0]:
-                        updates[q_idx] = (d, hit)
+                    # Update if closer
+                    key = (q, is_p1)
+                    if key not in updates or d < updates[key][0]:
+                        updates[key] = (d, hit)
 
-    process_hits(p1_indices[0], p1_indices[1], is_p1=True)
-    process_hits(p2_indices[0], p2_indices[1], is_p1=False)
-
-    # Apply updates
+    # 4. Apply Updates
     new_geoms = []
-    for i, c in enumerate(coords):
-        p1 = best_p1[i][1] if i in best_p1 else (c[0], c[1])
-        p2 = best_p2[i][1] if i in best_p2 else (c[2], c[3])
+    for i in range(len(geoms)):
+        p1_new = updates.get((i, True), (None, (coords[i][0], coords[i][1])))[1]
+        p2_new = updates.get((i, False), (None, (coords[i][2], coords[i][3])))[1]
         
-        # Only create new object if changed
-        if i in best_p1 or i in best_p2:
-            new_geoms.append(LineString([p1, p2]))
+        if (i, True) in updates or (i, False) in updates:
+            new_geoms.append(LineString([p1_new, p2_new]))
         else:
             new_geoms.append(geoms[i])
             
@@ -108,73 +141,78 @@ def _extend_undershoots_bulk(geoms: List[LineString], max_dist: float) -> List[L
 def _bridge_gaps_bulk(geoms: List[LineString], bridge_dist: float) -> List[LineString]:
     if not geoms: return []
     
-    # Extract start/end points for every line
-    # indices 2*i and 2*i+1
     coords = get_coordinates(geoms).reshape(-1, 4)
+    
+    # Pre-calculate unit vectors for all lines (N, 2)
+    # Vector points P1 -> P2
+    unit_vecs = _compute_unit_vectors(coords)
+    
+    # Build points for query
+    # Flattened list: [L0_Start, L0_End, L1_Start, L1_End, ...]
     points = []
     for c in coords:
         points.append(ShapelyPoint(c[0], c[1]))
         points.append(ShapelyPoint(c[2], c[3]))
 
     tree = STRtree(points)
-    # query returns pairs of [query_idx, result_idx]
     pairs = tree.query(points, predicate="dwithin", distance=bridge_dist)
     
     new_bridges = []
     seen_pairs = set()
 
+    # Iterate over nearby endpoint pairs
     for i, j in zip(pairs[0], pairs[1]):
         if i >= j: continue 
         
-        line_i, line_j = i // 2, j // 2
-        if line_i == line_j: continue # Don't bridge self
+        line_i, pt_i_type = divmod(i, 2) # type 0=Start, 1=End
+        line_j, pt_j_type = divmod(j, 2)
+        
+        if line_i == line_j: continue 
         
         pair_key = tuple(sorted((i, j)))
         if pair_key in seen_pairs: continue
         seen_pairs.add(pair_key)
         
-        p1, p2 = points[i], points[j]
-        if p1.distance(p2) < 1e-3: continue
+        p1 = points[i]
+        p2 = points[j]
+        
+        # Micro-optimization: Squared distance check before sqrt
+        dist_sq = (p1.x - p2.x)**2 + (p1.y - p2.y)**2
+        if dist_sq < 1e-6: continue 
 
         # --- Vector Logic ---
-        # Calculate line vectors (pointing AWAY from the endpoint)
-        def get_out_vector(c_arr, endpoint_idx):
-            # endpoint_idx 0 = start, 1 = end
-            if endpoint_idx == 0: 
-                dx, dy = c_arr[0] - c_arr[2], c_arr[1] - c_arr[3]
-            else: 
-                dx, dy = c_arr[2] - c_arr[0], c_arr[3] - c_arr[1]
-            l = math.hypot(dx, dy)
-            return (dx/l, dy/l) if l > 1e-9 else (0,0)
-
-        v1 = get_out_vector(coords[line_i], i % 2)
-        v2 = get_out_vector(coords[line_j], j % 2)
+        # Get vectors pointing OUT from the endpoint
+        # If endpoint is Start (0), Out vector is P1 - P2 = -Vec
+        # If endpoint is End (1), Out vector is P2 - P1 = +Vec
+        u1 = unit_vecs[line_i] * (-1 if pt_i_type == 0 else 1)
+        u2 = unit_vecs[line_j] * (-1 if pt_j_type == 0 else 1)
         
-        dot = v1[0]*v2[0] + v1[1]*v2[1]
+        dot = u1[0]*u2[0] + u1[1]*u2[1]
         
         should_bridge = False
         
-        # 1. Facing (Collinear opposite)
-        if dot < -0.9:
-            # displacement vector
-            dx, dy = p2.x - p1.x, p2.y - p1.y
-            l = math.hypot(dx, dy)
-            if l > 1e-9:
-                # check alignment
-                if (v1[0]*(dx/l) + v1[1]*(dy/l)) > 0.9:
+        # 1. Collinear/Facing (Opposite directions -> dot < -0.9)
+        if dot < -DOT_PARALLEL:
+            # Displacement vector
+            disp_x, disp_y = p2.x - p1.x, p2.y - p1.y
+            disp_len = math.sqrt(dist_sq)
+            if disp_len > 1e-9:
+                # Check if u1 points towards p2
+                if (u1[0]*(disp_x/disp_len) + u1[1]*(disp_y/disp_len)) > DOT_PARALLEL:
                     should_bridge = True
         
-        # 2. Perpendicular
-        elif abs(dot) < 0.2:
+        # 2. Perpendicular (Cross corner)
+        elif abs(dot) < DOT_PERP:
             should_bridge = True
             
-        # 3. Side-by-Side (Parallel vectors, perpendicular bridge)
-        elif dot > 0.9:
-            dx, dy = p2.x - p1.x, p2.y - p1.y
-            l = math.hypot(dx, dy)
-            if l > 1e-9:
-                # Bridge is perpendicular to wall direction
-                if abs(v1[0]*(dx/l) + v1[1]*(dy/l)) < 0.2:
+        # 3. Side-by-Side (Parallel -> dot > 0.9)
+        elif dot > DOT_PARALLEL:
+            # Bridge must be perpendicular to lines
+            disp_x, disp_y = p2.x - p1.x, p2.y - p1.y
+            disp_len = math.sqrt(dist_sq)
+            if disp_len > 1e-9:
+                # Dot of u1 and displacement should be ~0
+                if abs(u1[0]*(disp_x/disp_len) + u1[1]*(disp_y/disp_len)) < DOT_PERP:
                     should_bridge = True
 
         if should_bridge:
@@ -182,21 +220,21 @@ def _bridge_gaps_bulk(geoms: List[LineString], bridge_dist: float) -> List[LineS
         
     return geoms + new_bridges
 
+# ----------------------------
+# 4. Processing Pipeline
+# ----------------------------
+
 def _postprocess_polygons(polys: List[Polygon], cfg: DetectionConfig) -> List[Polygon]:
     # 1. Area Filter
     polys = [p for p in polys if p.area >= cfg.min_area]
     if not polys: return []
 
-    # 2. Simplification & sorting
+    # 2. Deduplication
     uniq = {p.simplify(0.0).wkt: p for p in polys}
     polys = sorted(list(uniq.values()), key=lambda p: p.area)
 
-    # 3. Optimized Containment Check (STRtree)
-    # Replaces O(N^2) loop with O(N log N)
+    # 3. Optimized Containment (STRtree)
     tree = STRtree(polys)
-    
-    # Query: which polygons contain which?
-    # returns [indices_of_inner, indices_of_outer]
     contains_indices = tree.query(polys, predicate="contains")
     
     removed = set()
@@ -206,11 +244,11 @@ def _postprocess_polygons(polys: List[Polygon], cfg: DetectionConfig) -> List[Po
         inner = polys[inner_idx]
         outer = polys[outer_idx]
         
-        # Check buffer tolerance
+        # Precise check
         if outer.buffer(cfg.contain_tol).contains(inner):
             ratio = outer.area / max(inner.area, 1e-9)
             if ratio < cfg.area_ratio_thresh:
-                removed.add(outer_idx) # Remove duplicate wall (outer)
+                removed.add(outer_idx)
 
     polys = [p for i, p in enumerate(polys) if i not in removed]
 
@@ -221,7 +259,7 @@ def _postprocess_polygons(polys: List[Polygon], cfg: DetectionConfig) -> List[Po
 
     if not polys: return []
 
-    # 5. Non-Destructive Merge
+    # 5. Non-Destructive Merge (Exact Geometry)
     if cfg.merge_overlapping:
         merged = unary_union(polys)
         if merged.is_empty: return []
@@ -261,29 +299,32 @@ def _calculate_coverage_fast(geoms: List[LineString], polys: List[Polygon], buff
 def detect_polygons(lines: Sequence[Line], config: Optional[DetectionConfig] = None) -> tuple[list[dict[str, Any]], dict[str, Any]]:
     if config is None: config = DetectionConfig()
     
-    # Pre-convert to Shapely LineStrings once
-    # Assumption: Line object has .to_shapely() or we convert manually here if not.
-    # To be safe and dependency-free on Line changes:
-    shapely_lines = [LineString([(ln.start.x, ln.start.y), (ln.end.x, ln.end.y)]) for ln in lines]
+    # Boundary Conversion
+    # (Assuming io_json.Line object has .to_shapely() based on architecture discussion)
+    # If not, fallback manual conversion:
+    shapely_lines = []
+    for ln in lines:
+        if hasattr(ln, 'to_shapely'):
+            shapely_lines.append(ln.to_shapely())
+        else:
+            shapely_lines.append(LineString([(ln.start.x, ln.start.y), (ln.end.x, ln.end.y)]))
 
     if not shapely_lines: return [], {"coverage_pct": 0.0, "missing_lines": []}
 
-    # 1. Ray Casting
+    # Pipeline
     shapely_lines = _extend_undershoots_bulk(shapely_lines, config.extension_dist)
-
-    # 2. Directional Bridging
     shapely_lines = _bridge_gaps_bulk(shapely_lines, config.bridge_dist)
 
-    # 3. Planarization
+    # Noding & Snapping
     processed_geom = unary_union(set_precision(MultiLineString(shapely_lines), grid_size=config.snap_tol))
 
-    # 4. Polygonize
+    # Polygonize
     raw_polys = list(polygonize(processed_geom))
 
-    # 5. Post-Process
+    # Post-Process
     clean_polys = _postprocess_polygons(raw_polys, config)
 
-    # 6. Stats
+    # Stats
     coverage, missing = _calculate_coverage_fast(shapely_lines, clean_polys, config.coverage_buffer)
 
     out_json = []
